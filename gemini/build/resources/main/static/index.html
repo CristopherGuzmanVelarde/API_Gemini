@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini API - Consultas</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            padding: 20px;
+        }
+        .chat-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+        .chat-header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .chat-messages {
+            height: 400px;
+            overflow-y: auto;
+            padding: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+        }
+        .message {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .user-message {
+            background-color: #d1ecf1;
+            margin-left: 20%;
+            margin-right: 5px;
+        }
+        .bot-message {
+            background-color: #f8f9fa;
+            margin-right: 20%;
+            margin-left: 5px;
+        }
+        .input-group {
+            margin-bottom: 20px;
+        }
+        .history-container {
+            margin-top: 30px;
+        }
+        .history-item {
+            cursor: pointer;
+            padding: 10px;
+            margin-bottom: 5px;
+            background-color: #f1f1f1;
+            border-radius: 5px;
+        }
+        .history-item:hover {
+            background-color: #e9ecef;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="chat-container">
+            <div class="chat-header">
+                <h2>Gemini API - Consultas</h2>
+            </div>
+            
+            <div class="chat-messages" id="chatMessages">
+                <!-- Los mensajes se mostrarán aquí -->
+            </div>
+            
+            <div class="input-group">
+                <input type="text" id="promptInput" class="form-control" placeholder="Escribe tu consulta aquí...">
+                <button class="btn btn-primary" id="sendButton">Enviar</button>
+            </div>
+            
+            <div class="history-container">
+                <h4>Historial de Consultas</h4>
+                <div id="historyList">
+                    <!-- El historial se mostrará aquí -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const promptInput = document.getElementById('promptInput');
+            const sendButton = document.getElementById('sendButton');
+            const chatMessages = document.getElementById('chatMessages');
+            const historyList = document.getElementById('historyList');
+            
+            // Cargar historial al iniciar
+            loadHistory();
+            
+            // Evento para enviar mensaje
+            sendButton.addEventListener('click', sendMessage);
+            promptInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    sendMessage();
+                }
+            });
+            
+            function sendMessage() {
+                const prompt = promptInput.value.trim();
+                if (prompt === '') return;
+                
+                // Mostrar mensaje del usuario
+                addMessage(prompt, 'user');
+                promptInput.value = '';
+                
+                // Enviar solicitud a la API
+                fetch('/api/gemini/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ text: prompt })
+                })
+                .then(response => response.text())
+                .then(data => {
+                    // Mostrar respuesta
+                    addMessage(data, 'bot');
+                    // Actualizar historial
+                    loadHistory();
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    addMessage('Error al procesar la solicitud: ' + error, 'bot');
+                });
+            }
+            
+            function addMessage(text, sender) {
+                const messageDiv = document.createElement('div');
+                messageDiv.classList.add('message');
+                messageDiv.classList.add(sender === 'user' ? 'user-message' : 'bot-message');
+                messageDiv.textContent = text;
+                chatMessages.appendChild(messageDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+            
+            function loadHistory() {
+                fetch('/api/gemini/history')
+                .then(response => response.json())
+                .then(data => {
+                    historyList.innerHTML = '';
+                    data.forEach((item, index) => {
+                        const historyItem = document.createElement('div');
+                        historyItem.classList.add('history-item');
+                        historyItem.textContent = `Consulta ${index + 1}: ${item.prompt.substring(0, 50)}${item.prompt.length > 50 ? '...' : ''}`;
+                        historyItem.addEventListener('click', function() {
+                            // Mostrar la consulta y respuesta completa
+                            chatMessages.innerHTML = '';
+                            addMessage(item.prompt, 'user');
+                            addMessage(item.response, 'bot');
+                        });
+                        historyList.appendChild(historyItem);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error al cargar historial:', error);
+                });
+            }
+        });
+    </script>
+</body>
+</html>
